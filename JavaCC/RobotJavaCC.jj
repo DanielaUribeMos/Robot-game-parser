@@ -1,0 +1,1511 @@
+/*
+Gramatica para el Robot:
+Autor: Alejandro Arango
+Modificado por: Silvia Takahashi
+Modificado por: Juan Pablo Morales.
+Agregadas producciones para manejar globos
+Modificado por Silvia Takahashi
+
+AUTORES: DANIELA URIBE 2019232921
+         JUAN FELIPE PATIÑO 201922857 
+
+ **/
+
+
+options 
+{
+  
+	LOOKAHEAD=1; 
+	IGNORE_CASE=true;
+	STATIC = false;
+	
+}
+   
+
+PARSER_BEGIN(Robot)
+
+package uniandes.lym.robot.control;
+
+import uniandes.lym.robot.kernel.*;
+import uniandes.lym.robot.view.Console;
+ 
+import java.awt.Point;
+import java.io.*;
+import java.util.*;
+
+@SuppressWarnings("serial")
+public class Robot 
+{
+
+
+	private RobotWorldDec world;
+	
+	
+	void setWorld(RobotWorld w) {
+		world = (RobotWorldDec) w;	
+	}
+
+	String salida=new String();
+	HashMap<String, Parametro > globales = new HashMap<String, Parametro>();
+	HashMap<String, ArrayList<Instruction> > funciones = new HashMap<String, ArrayList<Instruction>>();
+	HashMap<String, ArrayList<Parametro> > funciones2 = new HashMap<String, ArrayList<Parametro> >();
+
+
+//SE CREA LA CLASE INSTRUCCION PARA GUARDAR INSTRUCCIONES DE FUNCIONES
+public class Instruction {
+
+	//CADA FUNCION PRE-CREADA ES UN TIPO DE INSTRUCCION
+	public final static String ASIGNAR = "assign";
+	public final static String STEP = "step";
+	public final static String JUMP = "jump";
+	public final static String JUMPTO = "jumpTo";
+	public final static String VEER = "veer";
+	public final static String LOOK = "look";
+	public final static String DROP = "drop";
+	public final static String GRAB = "grab";
+	public final static String GET = "get";
+	public final static String FREE = "free";
+	public final static String POP = "pop";
+	public final static String DMOVE = "dmove";
+	public final static String OMOVE = "omove";
+	
+	public final static String IF="if";
+	public final static String WHILE="while";
+	public final static String REPEAT="repeat";
+	
+	public final static String ISFACING="isfacing";
+	public final static String ISVALID="isvalid";
+	public final static String CANMOVE="canmove";
+	public final static String NOT="not";
+	public final static String FUNCION="funcion";
+	
+	
+	private String nombreInstruccion;
+	
+	private Parametro variable;
+	
+	private int numero;
+	
+	private int numero2;
+	
+	private int opciones;
+	
+	private Parametro variableParam;
+	
+	private Parametro variableParam2;
+	
+	private Instruction condicion;
+	
+	private Instruction instruccion;
+	
+	private String instruccion2;
+	
+	private ArrayList<Instruction> bloque1;
+	
+	private ArrayList<Instruction> bloque2;
+	
+	private String dir;
+	
+	private ArrayList<Parametro> parametros;
+	
+	private String funEjecutar;
+
+	//SE CREAN DIFERENTES CONSTRUCTORES PARA CADA GRUPO DE CASOS SEGUN EL METODO A EJECUTAR
+	
+	//ASIGNAR-STEP-JUMP-DROP-GRAB-GET-FREE-POP-ISVALID
+	public Instruction(String pNombre, Parametro pVariable, int pNumero)
+	{
+		nombreInstruccion = pNombre;
+		
+		variable = pVariable;
+		
+		numero = pNumero;
+	}
+	
+	//VEER-LOOK
+	public Instruction(String pNombre, String pVariable, int pNumero)
+	{
+		nombreInstruccion = pNombre;
+		
+		dir = pVariable;
+		
+		numero = pNumero;
+	}
+	
+	//CAN-MOVE
+	public Instruction(String pNombre, String pVariable, int pNumero, Parametro pVariableParam)
+	{
+		nombreInstruccion = pNombre;
+		
+		dir = pVariable;
+		
+		numero = pNumero;
+		
+		variable = pVariableParam;
+	}
+	
+	
+	//JUMPTO
+	public Instruction(String pNombre, int pNumero1 , int pNumero2, Parametro pVariableParam1, Parametro pVariableParam2)
+	{
+		nombreInstruccion = pNombre;
+		
+		if(pNumero1 != 1000) {
+			numero= pNumero1;
+			
+		}
+		
+		if(pNumero2 != 1000) {
+			numero2= pNumero2;
+			
+		}
+		
+		if(! pVariableParam1.equals(null)) {
+			variableParam= pVariableParam1;
+			
+		}
+		
+		if(! pVariableParam2.equals(null)) {
+			variableParam2= pVariableParam2;
+			
+		}
+		
+	}
+	
+	//OMOVE-DMOVE
+	public Instruction(String pNombre, Parametro pVariableParam, int pNumero, String pDir)
+	{
+		nombreInstruccion = pNombre;
+		
+		variableParam = pVariableParam;
+		
+		dir = pDir;
+		
+		numero= pNumero;
+		
+	}
+
+	
+	//IF-ELSE-IF-WHILE
+	public Instruction(String pNombre, Instruction pCondicion, ArrayList<Instruction> pBloque1, ArrayList<Instruction> pBloque2)
+	{
+		nombreInstruccion = pNombre;
+		
+		condicion = pCondicion;
+		
+		bloque1 = pBloque1;
+		
+		bloque2 = pBloque2;
+	}
+	
+	//REPEAT
+	public Instruction(String pNombre, Parametro pVariableParam, int pNumero, ArrayList<Instruction> pBloque1)
+	{
+		nombreInstruccion = pNombre;
+		
+		variableParam = pVariableParam;
+		
+		numero = pNumero;
+		
+		bloque1 = pBloque1;
+	}
+	
+	//ISVALID
+	public Instruction(String pNombre, String pInstruccion, Parametro pVariableParam, int pNumero)
+	{
+		nombreInstruccion = pNombre;
+		
+		numero = pNumero;
+		
+		instruccion2 = pInstruccion;
+		
+		variableParam = pVariableParam;
+	}
+	
+	//NOT
+	public Instruction(String pNombre, Instruction pInstruccion)
+	{
+		nombreInstruccion = pNombre;
+		
+		instruccion = pInstruccion;
+	}
+	
+	//FUNCIONES
+	public Instruction(String pNombre, String pNombre2, ArrayList<Parametro> pParametros)
+	{
+		nombreInstruccion = pNombre;
+		
+		parametros = pParametros;
+		
+		funEjecutar=pNombre2;
+
+	}
+	
+	
+	public String darNom() {
+		return nombreInstruccion;
+		
+	}
+	
+	public Parametro darVariable() {
+		return variable;
+		
+	}
+	
+	public int darNumero() {
+		return numero;
+		
+	}
+	
+	public String darInstruccion2() {
+		return instruccion2;
+	}
+	
+	public Parametro darVariableParam() {
+		return variableParam;
+	}
+	
+	public int darNumero2() {
+		return numero2;
+		
+	}
+	
+	public Parametro darVariableParam2() {
+		return variableParam2;
+	}
+	
+	public Instruction darInstruccion() {
+		return instruccion;
+	}
+	
+	public ArrayList<Instruction> darBloque1() {
+		return bloque1;
+	}
+	
+	public ArrayList<Instruction> darBloque2() {
+		return bloque2;
+	}
+	
+	public Instruction darCondicion() {
+		return condicion;
+	}
+	
+	public String darDir() {
+		return dir;
+	}
+	
+	public String darFunEjecutar() {
+		return funEjecutar;
+	}
+	
+	public ArrayList<Parametro> darParametros() {
+		return parametros;
+	}
+
+	}
+
+	//SE CREA LA CLASE DE PARAMETRO PARA GUARDAR LOS PARAMETROS DE FUNCIONES PARA PODER EJECUTARLOS
+	public class Parametro {
+	
+	private String nombre;
+	
+	private int valor;
+	
+	public Parametro(String pnombre, int pvalor) {
+		
+		nombre=pnombre;
+		valor=pvalor;
+		
+	}
+
+	public void modificarValor(int pvalor) {
+		
+		valor=pvalor;
+	}
+	
+	public int darValor() {
+		
+		return valor;
+	}
+	
+	public String darNombreParam() {
+		
+		return nombre;
+	}
+
+}
+
+	
+}
+
+PARSER_END(Robot)
+
+SKIP:
+{
+	" "
+	|"\r"
+	|"\t"
+	|"\n"
+}
+
+TOKEN: /* Estructura general */
+{
+
+	<PROG: "PROG" >|
+	<GORP: "GORP" >|
+	<VAR: "var" >|
+	<PROC: "PROC" >|
+	<CORP: "CORP" >
+
+}
+
+TOKEN: /* Comandos */
+{
+
+	<ASIG: ":=" >|
+	<STEP: "step" >|
+	<JUMP: "jump" >|
+	<JUMPTO: "jumpTo" >|
+	<VEER: "veer" >|
+	<LOOK: "look" >|
+	<DROP: "drop" >|
+	<GRAB: "grab" >|
+	<GET: "get" >|
+	<FREE: "free" >|
+	<POP: "pop" >|
+	<DMOVE: "Dmove" >|
+	<OMOVE: "Omove" >
+}
+
+TOKEN: /* Estructuras control */
+{
+
+	<IF: "if" >|
+	<ELSE: "else" >|
+	<FI: "fi" >|
+	<WHILE: "while" >|
+	<DO: "do" >|
+	<OD: "od" >|
+	<REPEAT: "repeatTimes" >|
+	<PER: "per" >
+
+}
+
+TOKEN: /* Condiciones */
+{
+
+	<ISFACING: "isfacing" >|
+	<ISVALID: "isValid" >|
+	<CANMOVE: "canMove" >|
+	<NOT: "not" >
+}
+
+TOKEN: /* Direcciones */
+{
+
+	<LEFT: "left" >|
+	<RIGHT: "right" >|
+	<AROUND: "around" >|
+	<NORTH: "north" >|
+	<SOUTH: "south" >|
+	<EAST: "east" >|
+	<WEST: "west" >|
+	<FRONT: "front" >|
+	<BACK: "back" >
+}
+
+TOKEN: /* Tipo datos */
+{
+	< #DIGIT: "0" | "1" | "2"| "3" | "4" | "5" |  "6" | "7" | "8" |"9" >
+|   < #UPPER: ["A"-"Z"] >
+|   < #LOWER: ["a"-"z"] >
+|   < NAME: ( (<UPPER>|<LOWER >)  ( <UPPER > | < LOWER > | < DIGIT > )* )>
+|    < INT: ( <DIGIT> )+ >
+
+}
+
+
+
+
+
+	//boolean command(uniandes.lym.robot.view.Console sistema) :
+	boolean command(Console sistema):
+	{	
+		
+		int x,y;
+		salida=new String();	
+	}
+
+	
+	{
+		(
+		  (
+		    //Estructura general de cualquier programa
+		 	< PROG > [var()] (proc())* ["{" procedimiento() "}"] <GORP>
+		  )
+
+				{
+				    try {
+			    			 Thread.sleep(900);
+			    	    } catch (InterruptedException e) {
+			    			        System.err.format("IOException: %s%n", e);
+			    		    }
+			    			 
+					sistema.printOutput(salida);
+					return true;
+				}
+			)+
+
+    	| <EOF> {return false;} 
+	}
+
+	//Revision de bloques PROC, tienen nombres, parametros y codigo. Se guardan como objetos tipo parametro los parametros y se pasan a
+	//El bloque una rray de instrucciones para que se agregue el codigo en ese formato y despues de agregan las instrucciones y parametros
+	//A dos hashmaps
+	void proc():
+	{
+	  String nombre="";
+	  HashMap<String, Parametro > param = new HashMap<String, Parametro>();
+	  String temporal="";
+	  ArrayList<Instruction> instrucciones= new ArrayList<Instruction>();
+	  int posicion=0;
+	  ArrayList<Parametro> param2=new ArrayList<Parametro>();
+	  Parametro parametro= new Parametro("", 1000);
+	}
+	{
+	  (
+	    < PROC > nombre= name()
+		  "("
+		  [
+			  temporal= name() { parametro= new Parametro(temporal, 1000); param.put(temporal, parametro); param2.add(parametro);}
+			  ("," temporal= name() {parametro= new Parametro(temporal, 1000); param.put(temporal, parametro);param2.add(parametro);} )*
+		  ]
+		  ")"
+		  "{"
+				[bloque(param, instrucciones)]	
+		  "}"
+		  < CORP >
+	  )
+	  { funciones.put(nombre, instrucciones); funciones2.put(nombre, param2);}
+	}
+
+	//Se revisa cada opcion valida de codigo para las funcionaldiades de una funcion, y se agrega a un arreglo de instrucciones
+	void bloque(HashMap<String, Parametro > param, ArrayList<Instruction> instrucciones ):
+	{
+	    Parametro parametrico= new Parametro("", 1000);
+		Instruction ins= new Instruction("", parametrico, 1000);
+		Parametro nombre= new Parametro("", 1000);
+		Parametro nombre2=new Parametro("", 1000);
+		int numero=1000;
+		int numero2=1000;
+		Token token= null;
+		Instruction cond= new Instruction("", parametrico, 1000);
+		ArrayList<Instruction> bloque1=new ArrayList<Instruction>();
+		ArrayList<Instruction> bloque2=new ArrayList<Instruction>();
+		String cadena="";
+		Token nombresito=null;
+	}
+	{
+		(
+			( nombre= fbuscar2(param) ( (< ASIG > numero= num()  { ins= new Instruction(Instruction.ASIGNAR,nombre, numero); }) | ins= funcfun2(nombre.darNombreParam(), param) ) ) |
+			
+			(< STEP > "(" (numero= num() |nombre= fbuscar(param)) ")"  {ins= new Instruction(Instruction.STEP,nombre, numero); })|
+			
+			(< JUMP > "(" (numero= num() |nombre= fbuscar(param)) ")" {ins= new Instruction(Instruction.JUMP,nombre, numero); })|
+			
+			(< JUMPTO > "(" (numero= num() |nombre= fbuscar(param)) "," (numero2= num() | nombre2= fbuscar(param)) ")" {ins= new Instruction(Instruction.JUMPTO, numero, numero2, nombre, nombre2); })|
+			
+			(< VEER > "(" ( token= < LEFT > {cadena=token.image; }| token=< RIGHT > {cadena=token.image; }| token=< AROUND > {cadena=token.image; } )")" { ins= new Instruction(Instruction.VEER, cadena, numero);})|
+
+			(< LOOK > "(" (token= < NORTH > {cadena=token.image; }| token= < SOUTH > {cadena=token.image; }| token= < EAST > {cadena=token.image; }| token= < WEST > {cadena=token.image; }) ")" {ins= new Instruction(Instruction.LOOK, cadena, numero); })|
+
+			(< DROP > "(" (numero= num()|nombre= fbuscar(param)) ")" {ins= new Instruction(Instruction.DROP,nombre, numero); })|
+
+			(< GRAB > "(" (numero= num() |nombre= fbuscar(param))")" {ins= new Instruction(Instruction.GRAB,nombre, numero); })|
+
+			(< GET > "("  (numero= num() |nombre= fbuscar(param))")" {ins= new Instruction(Instruction.GET,nombre, numero); })|
+
+			(< FREE > "(" (numero= num() |nombre= fbuscar(param))")" {ins= new Instruction(Instruction.FREE,nombre, numero); })|
+
+			(< POP > "("  (numero= num() |nombre= fbuscar(param))")" {ins= new Instruction(Instruction.POP,nombre, numero); })|
+
+			(< DMOVE > "(" (numero= num() |nombre= fbuscar(param)) "," (token=< FRONT > {cadena=token.image; }| token=< BACK > {cadena=token.image; }| token=< RIGHT > {cadena=token.image; }| token=< LEFT > {cadena=token.image; } ) ")" {ins= new Instruction(Instruction.DMOVE,nombre, numero, cadena); })|
+
+			(< OMOVE > "(" (numero= num() |nombre= fbuscar(param)) "," (token=< NORTH > {cadena=token.image; }| token=< SOUTH > {cadena=token.image; }| token=< EAST > {cadena=token.image; }| token=< WEST > {cadena=token.image; }) ")" {ins= new Instruction(Instruction.OMOVE,nombre, numero, cadena); })|
+
+			( < IF > "(" cond=conditionCheck(param, cond)")" "{"bloque(param,bloque1)"}" [<ELSE > "{"bloque(param,bloque2) "}"] <FI> {ins= new Instruction(Instruction.IF,cond, bloque1, bloque2); })|
+
+			( < WHILE > "(" cond=conditionCheck(param, cond) ")"< DO > "{" bloque(param,bloque1) "}" <OD> {ins= new Instruction(Instruction.WHILE,cond, bloque1, bloque2); })|
+
+			( < REPEAT > (numero= num()|nombre= fbuscar(param))  "{"bloque(param,bloque1)"}" <PER> {ins= new Instruction(Instruction.REPEAT,nombre, numero, bloque1); })
+
+	  ) { instrucciones.add(ins);}
+	  [";" bloque(param,instrucciones )]
+	  
+	}
+
+	//Revision de condiciones correctamente estructruadas y se devuelve la instruccion correcta
+	Instruction conditionCheck(HashMap<String, Parametro > param, Instruction cond):
+	{
+		Instruction aux=new Instruction("", "", 1000);
+		Token token=null;
+		int numero=1000;
+		Parametro nombre= new Parametro("", 1000);
+	}
+	{
+	  (
+	    
+		(< NOT > "(" ( aux=conditionCheck(param, aux)) ")" {cond= new Instruction(Instruction.NOT, aux); } )|
+
+		( <ISFACING > "(" (token=< NORTH > | token=< SOUTH > | token=< EAST > | token=< WEST >) ")" { cond= new Instruction(Instruction.ISFACING, token.image, numero); } )|
+
+		( <ISVALID > "(" (token=< STEP >| token=< JUMP >| token=<GRAB >| token=< POP > | token=< FREE > | token=< DROP >) "," (numero=num()| nombre= fbuscar(param)) ")" {cond= new Instruction(Instruction.ISVALID, token.image, nombre, numero); })|
+
+		( <CANMOVE > "(" (token=< NORTH > | token=< SOUTH > | token=< EAST > | token=< WEST >) "," (numero=num() |nombre= fbuscar(param)) ")" {cond= new Instruction(Instruction.CANMOVE, token.image, numero, nombre); } )
+
+      )
+
+      { return cond; }
+		  
+		  
+	}
+
+	//Se interpreta el codigo ejecutable y se corre
+	void procedimiento():
+	{
+	  	Instruction ins=new Instruction("", "", 1000);
+		Token nombre= null;
+		String nombre2="";
+		int numero=1000;
+		int numero2=1000;
+		Token token= null;
+		Instruction cond= new Instruction("", "", 1000);
+		ArrayList<Instruction> bloque1=new ArrayList<Instruction>();
+		ArrayList<Instruction> bloque2=new ArrayList<Instruction>();
+		HashMap<String, Parametro> param=new HashMap<String, Parametro>();
+		boolean si=false;
+
+	}
+	{
+
+		(
+		  
+			( nombre= < NAME >  ( (< ASIG > numero= num()  asignar(nombre.image, numero))  |  funcfun(nombre.image)  ) )|
+			
+			(< STEP > "(" (numero= num() |numero= buscar()) ")"  {world.moveForward(numero, false);})|
+			
+			(< JUMP > "(" (numero= num() |numero= buscar()) ")" {world.moveForward(numero, true); })|
+			
+			(< JUMPTO > "(" (numero= num() |numero= buscar()) "," (numero2= num() | numero2= buscar() ) ")" {world.setPostion(numero,numero2); })|
+			
+			(< VEER > "(" ( token= < LEFT >| token=< RIGHT >| token=< AROUND >) ")" veer(token.image))|
+
+			(< LOOK > "(" (token= < NORTH >| token= < SOUTH >| token= < EAST >| token= < WEST >) ")" look(token.image))|
+
+			(< DROP > "(" (numero= num()|numero= buscar()) ")" {world.putChips(numero); })|
+
+			(< GRAB > "(" (numero= num() |numero= buscar())")" {world.grabBalloons(numero); })|
+
+			(< GET > "("  (numero= num() |numero= buscar())")" {world.pickChips(numero); })|
+
+			(< FREE > "(" (numero= num() |numero= buscar())")" {world.putBalloons(numero); })|
+
+			(< POP > "("  (numero= num() |numero= buscar())")" {world.popBalloons(numero); })|
+
+			(< DMOVE > "(" (numero= num() |numero= buscar()) "," (token=< FRONT > | token=< BACK > | token=< RIGHT > | token=< LEFT >) ")" dmove(numero, token.image))|
+
+			(< OMOVE > "(" (numero= num() |numero= buscar()) "," (token=< NORTH > | token=< SOUTH > | token=< EAST > | token=< WEST >) ")" omove(numero, token.image))|
+
+			( < IF > "(" si=conditionCheckEjecut() ")" "{" [bloque(param,bloque1)] "}" [<ELSE > "{" [bloque(param,bloque2)] "}"] <FI> funcif(si, bloque1, bloque2) )|
+
+			( < WHILE > "(" cond=conditionCheck(param,cond) ")"< DO > "{" bloque(param,bloque1) "}" <OD>  funcwhile(cond, bloque1))|
+
+			( < REPEAT >  (numero= num()|numero= buscar())  "{" [bloque(param,bloque1)] "}" <PER>  funcrepeat(numero, bloque1))
+
+
+	  ) [";" procedimiento()]
+		  
+		  
+	}
+
+	//Se ejecutan el arreglo de instrucciones que se pasan por pametro
+	void ejecutar(ArrayList<Instruction> instrucciones):
+	{
+
+	}
+	{
+		{
+		  for(Instruction temp: instrucciones)
+		  {
+		    String ins= temp.darNom();
+
+		    if(ins.equals(Instruction.ASIGNAR))
+		    {
+		      String nombre= temp.darVariable().darNombreParam();
+		      int numero= temp.darNumero();
+		      asignar(nombre, numero);
+		  	}
+		  	else if(ins.equals(Instruction.STEP))
+		  	{
+		  	  int numero= varOnum(temp.darNumero(), temp.darVariable().darValor());
+		  	  world.moveForward(numero, false);
+		  	  
+		    }
+		    else if(ins.equals(Instruction.JUMP))
+		  	{
+		  	  int numero= varOnum(temp.darNumero(), temp.darVariable().darValor());
+		  	  world.moveForward(numero, true);
+		  	  
+		    }
+		    else if(ins.equals(Instruction.JUMPTO))
+		  	{
+		  	  int numero= varOnum(temp.darNumero(), temp.darVariableParam().darValor());
+		  	  int numero2= varOnum(temp.darNumero2(), temp.darVariableParam2().darValor());
+		  	  world.setPostion(numero,numero2);
+		  	  
+		    }
+		    else if(ins.equals(Instruction.VEER))
+		  	{
+				veer(temp.darDir());
+		  	  
+		    }
+		    else if(ins.equals(Instruction.LOOK))
+		  	{
+				look(temp.darDir());
+		  	  
+		    }
+		    else if(ins.equals(Instruction.DROP))
+		  	{
+		  	    int numero= varOnum(temp.darNumero(), temp.darVariable().darValor());
+				world.putChips(numero);
+		  	  
+		    }
+		    else if(ins.equals(Instruction.GRAB))
+		  	{
+		  	    int numero= varOnum(temp.darNumero(), temp.darVariable().darValor());
+				world.grabBalloons(numero);
+		  	  
+		    }
+		    else if(ins.equals(Instruction.GET))
+		  	{
+		  	    int numero= varOnum(temp.darNumero(), temp.darVariable().darValor());
+				world.pickChips(numero);
+		  	  
+		    }
+		    else if(ins.equals(Instruction.FREE))
+		  	{
+		  	    int numero= varOnum(temp.darNumero(), temp.darVariable().darValor());
+				world.putBalloons(numero);
+		  	  
+		    }
+		    else if(ins.equals(Instruction.POP))
+		  	{
+		  	    int numero= varOnum(temp.darNumero(), temp.darVariable().darValor());
+				world.popBalloons(numero);
+		  	  
+		    }
+		    else if(ins.equals(Instruction.DMOVE))
+		  	{
+		  	    int numero= varOnum(temp.darNumero(), temp.darVariableParam().darValor());
+				dmove(numero, temp.darDir());
+		  	  
+		    }
+		    else if(ins.equals(Instruction.OMOVE))
+		  	{
+		  	    int numero= varOnum(temp.darNumero(), temp.darVariableParam().darValor());
+				omove(numero, temp.darDir());
+		  	  
+		    }
+		    else if(ins.equals(Instruction.IF))
+		  	{
+		  	    boolean si= condiciones(temp.darCondicion());
+				funcif(si, temp.darBloque1(), temp.darBloque2());
+		    }
+		    else if(ins.equals(Instruction.WHILE))
+		  	{
+				funcwhile(temp.darCondicion(), temp.darBloque1()); 
+		    }
+		    else if(ins.equals(Instruction.REPEAT))
+		  	{
+		  	    int numero= varOnum(temp.darNumero(), temp.darVariableParam().darValor());
+				funcrepeat(numero, temp.darBloque1()); 
+		    }
+		    else if(ins.equals(Instruction.FUNCION))
+		  	{
+				String nombre= temp.darFunEjecutar();
+				ArrayList<Parametro> parametros= temp.darParametros();
+				funcfun3(nombre, parametros);
+		    }
+		    
+		  }
+
+		}
+	}
+
+	//Se  interpretan la funcion por su nombre y se revisan los parametros que sean validos para despues ejecutarlos con dichos parametros
+	void funcfun3(String nombre, ArrayList<Parametro> parametrosIni):
+	{
+	  int numero=1000;
+	  int temporal=1000;
+	  int pos=0;
+	}
+	{
+
+       {
+		ArrayList<Parametro> parametros= funciones2.get(nombre);
+        ArrayList<Instruction> instrucciones = funciones.get(nombre);
+
+        if(parametros.size()!=parametrosIni.size())
+        {
+			throw new Error("Se ingresó una cantidad incorrecta de parámetros");
+        }
+        for(int i=0; i<parametros.size(); i++) {
+
+          parametros.get(i).modificarValor(parametrosIni.get(i).darValor());
+
+        }
+
+         if(instrucciones !=null)
+         {
+          ejecutar(instrucciones);
+         }
+         else
+         {
+           throw new Error("La función "+ nombre + " no ha sido declarada");
+         }
+       }
+	}
+
+	//Se busca el valor de un parametro a ver si tiene un valor valido
+	Parametro fbuscar2(HashMap<String, Parametro > param) throws Error:
+	{	
+		Parametro total= new Parametro("", 1000);
+		Token token;
+	}
+	
+	{
+	  	 (token= < NAME >)
+		{
+		  
+		    Parametro valor = param.get(token.image);
+		    Parametro valor2 = globales.get(token.image);
+		    ArrayList<Instruction> valor3= funciones.get(token.image);
+		    
+		    if(valor != null)
+		    {
+		      total = valor;
+		    }
+		    else if(valor2!=null)
+		    {
+		      total = valor2;
+		    }
+		    else if(valor3!=null) {
+				total= new Parametro(token.image, 1000);
+		    }
+		    else 
+			{
+				throw new Error("El parámetro "+token.image + " no ha sido declarado");
+			}
+			return total;
+	     }
+	
+	}
+
+	//Se revisa una estructura valida y se consdiera el caso de una funcion llamada dentro de otra funcion
+	Instruction funcfun2(String nombre, HashMap<String, Parametro > param):
+	{
+	  int numero=1000;
+	  int temporal=1000;
+	  ArrayList<Parametro> parametros= new ArrayList<Parametro>();
+	  Parametro parametro= new Parametro("", 1000);
+	}
+	{
+
+       {
+        ArrayList<Instruction> instrucciones= funciones.get(nombre);
+
+        if(instrucciones==null) {
+          throw new Error("La función "+nombre + " no ha sido declarada");
+
+        }
+	   }
+       					"("[
+       						(
+       						  (
+       						  numero= num() |
+       						  parametro= fbuscar(param)
+       						  )
+       						 {
+       						   if(numero!=1000) {
+									parametro= new Parametro("param1", numero);
+       						   }
+									parametros.add(parametro);
+       						 }
+       					    )
+       					    (
+       					      ","
+       						  (
+       						  numero= num() |
+       						  parametro= fbuscar(param)
+       						  )
+       						 {
+       						   if(numero!=1000) {
+									parametro= new Parametro("param1", numero);
+       						   }
+									parametros.add(parametro);
+       						 }
+       					    )*
+       					    
+       						 
+       				     ]")"
+       {
+         Instruction instruccion= new Instruction(Instruction.FUNCION, nombre, parametros);
+         return instruccion;
+       }
+	}
+
+
+	//Se revisa una estructura valida y se consdiera el caso de una funcion llamada dentro de otra funcion
+	void funcfun(String nombre):
+	{
+	  int numero=1000;
+	  int temporal=1000;
+	  int pos=0;
+	}
+	{
+
+       {
+		ArrayList<Parametro> parametros= funciones2.get(nombre);
+	   }
+       					"("[
+       						(
+       						  (
+       						  numero= num() |
+       						  numero= buscar()
+       						  )
+       						 {
+									parametros.get(pos).modificarValor(numero);
+									pos++;
+       						 }
+       					    )
+       					    (
+       					      ","
+       						  (
+       						  numero= num() |
+       						  numero= buscar()
+       						  )
+       						 {
+									parametros.get(pos).modificarValor(numero);
+									pos++;
+       						 }
+       					    )*
+       					    
+       						 
+       				     ]")"
+       {
+         ArrayList<Instruction> instrucciones = funciones.get(nombre);
+         
+
+         if(instrucciones !=null)
+         {
+          ejecutar(instrucciones);
+         }
+         else
+         {
+           throw new Error("La funcion "+ nombre + " no ha sido declarada");
+         }
+       }
+	}
+
+	//Se evalua para un parametro si deberia considerarse su valor como numero o como variable
+	int varOnum(int numero, int var):
+	{
+
+	}
+	{
+	  {
+
+	      if(numero== 1000)
+	      {
+	        numero=var;
+	      }
+
+	      return numero;
+	    
+	  }
+	
+	}
+
+	//Se ejecuta una bloque de codigo de tipo repeatTimes
+	void funcrepeat(int numero, ArrayList<Instruction> bloque):
+	{
+
+    }
+    {
+      { 
+	      for(int i=0; i<numero; i++)
+	      {
+	        ejecutar(bloque);
+	      }
+      }
+    }
+	
+	//Se ejecuta una bloque de codigo de tipo While
+	void funcwhile(Instruction cond, ArrayList<Instruction> bloque):
+	{
+	}
+	{
+	  
+	  {
+		while(condiciones(cond))
+		{
+			ejecutar(bloque);
+	    }
+	    
+	  }
+	}
+	
+	//Se evalua una condicion y se devuelve si es valido o no el sintaxis
+	boolean condiciones(Instruction cond):
+	{
+       boolean valido=false;
+    }
+    {
+      {
+	    String nombre= cond.darNom();
+
+	    if( nombre.equals( Instruction.ISFACING))
+	    {
+	      valido=isFacing(cond.darDir());
+	    }
+	    else if(nombre.equals( Instruction.CANMOVE))
+	    {
+	       int numero= varOnum(cond.darNumero(), cond.darVariable().darValor());
+	       valido=canMove(cond.darDir(), cond.darNumero());
+	    }
+	    else if(nombre.equals( Instruction.NOT))
+	    {
+	      Instruction ins=cond.darInstruccion();
+	      valido= !condiciones(ins);
+	    }
+        else 
+	    {
+	      String nombreIns= cond.darInstruccion2();
+	      int numero=cond.darNumero();
+
+	      if(numero== 1000)
+	      {
+	        numero=cond.darVariableParam().darValor();
+	      }
+
+	      
+	      if(nombreIns.equals("step") || nombreIns.equals("jump") ) {
+
+	        valido=step(numero, false);
+  
+	      }
+		  else if(nombreIns.equals("drop")) {
+
+		    valido=drop(numero);
+                
+		  }
+		  else
+		  {
+		    valido=grab(numero);
+		  }
+	      
+	    
+	  }
+	  return valido;
+
+	 }
+      
+    }
+
+	
+	//Se evalua una condicion y se devuelve su valor como Boolean
+	void funcif(boolean si, ArrayList<Instruction> bloque1, ArrayList<Instruction> bloque2):
+	{
+		
+	}
+	{
+	  {
+		if(si) {
+		  ejecutar(bloque1);
+		}
+		else if( bloque2!=null)
+		{
+		  ejecutar(bloque2);
+	    }
+	    
+	  }
+	}
+
+	//Se devuelve el valor booleano de una pregunta condicional
+	boolean conditionCheckEjecut():
+	{
+		Token token=null;
+		int numero=1000;
+		boolean funciona=false;
+		boolean not=false;
+	}
+	{
+		(
+		  (< NOT > "(" funciona= conditionCheckEjecut() ")" { not=true; } )|
+
+		  ( <ISFACING > "(" (token=< NORTH > | token=< SOUTH > | token=< EAST > | token=< WEST >) ")" funciona=isFacing(token.image))|
+	
+		  (funciona= isValid())|
+	
+		  ( <CANMOVE > "(" (token=< NORTH > | token=< SOUTH > | token=< EAST > | token=< WEST >) "," (numero=num() |numero= buscar()) ")" funciona=canMove(token.image, numero) )
+		)
+
+		{
+		  if(not)
+		  {
+		    funciona= !funciona;
+		  }
+		  return funciona;
+
+		}
+		  
+	}
+
+
+	//Se evalua si se puede caminar en una direccon un numero de veces pasando por parametro
+	boolean canMove(String dir, int numero):
+	{
+		
+	}
+	{
+	  { 
+		if(dir.equals("north"))
+			return vertically(-numero, false);
+		else if(dir.equals("south")) 
+			return vertically(numero, false);
+		else if(dir.equals("east"))
+			return horizontally(numero,false);
+		else
+			return horizontally(-numero, false);
+
+		return true;
+	  }
+	}
+
+	//Se evalua si esta mirando a una direcion pasada por parametro
+	boolean isFacing(String dir):
+	{
+
+	}
+	{
+	  {
+		if(dir.equals("north"))
+		{
+			return world.facingNorth();
+		}
+		else if(dir.equals("south"))
+		{
+			return world.facingSouth();
+		}
+		else if(dir.equals("east"))
+		{
+			return world.facingEast();
+		}
+		else
+		{
+			return world.facingWest();
+		}
+	    
+	  }
+
+	}
+	//Se evalua la funcion IsValid para los parametros posibles
+	boolean isValid():
+	{
+		boolean funciona=false;
+		int numero=1000;
+	}
+	{
+	  (   < ISVALID > "("
+	      (
+	        
+		      (< STEP > "," (numero= num() |numero= buscar()) funciona=step(numero, false) )|
+				
+			  (< JUMP > "," (numero= num() |numero= buscar()) funciona=step(numero, true) )|
+		
+			  (< GRAB > "," (numero= num() |numero= buscar()) funciona=grab(numero) )|
+		
+			  (< POP > "," (numero= num() |numero= buscar()) funciona=grab(numero) )|
+		
+			  (< FREE > "," (numero= num() |numero= buscar())  funciona=grab(numero))|
+		
+			  (< DROP > "," (numero= num() |numero= buscar())  funciona=drop(numero))
+		  )
+		  ")"
+	  )
+
+	  {
+	    return funciona;
+	  }
+
+	}
+
+	//Se evalua el caso drop de IsValid para los parametros
+	boolean drop(int numero):
+	{
+
+	}
+	{
+	  { 
+		if (numero < 0)
+			return false;
+		else if (numero>world.freeSpacesForChips())
+			return false;	
+		else if (world.getMyChips()< numero) 
+			return false;
+		return true;
+	  }
+	}
+	//Se evalua el caso grab de IsValid para los parametros
+	boolean grab(int numero):
+	{
+	}
+	{
+		{
+		  if (numero < 0)
+			return false;
+		  else if(world.countBalloons(world.getPosition()) < numero) {
+		    return false;
+		}	
+
+		}
+	} 
+	//Se evalua el caso step de IsValid para los parametros
+	boolean step(int numero, boolean jump):
+	{
+
+	}
+	{
+	  { 
+		int orient = world.getFacing();
+		if(orient == 0)
+			return vertically(-numero, jump);
+		else if(orient == 1) 
+			return vertically(numero, jump);
+		else if(orient == 2)
+			return horizontally(numero,jump);
+		else
+			return horizontally(-numero,jump);
+
+		return true;
+	  }
+	}
+	//Se evalua el caso de movimiento vertical de IsValid para los parametros
+	boolean vertically(int numero, boolean jump):
+	{
+
+	}
+	{
+	  { 
+		Point p =world.getPosition();
+		int tam = world.getN();
+		int newY,i;
+		
+		newY = p.y+numero;
+		int dir = 5;
+		if (newY > tam)
+			return false;
+		else if (newY < 1)
+			return false;
+		else if (world.isBlocked(new Point(p.x, newY)))
+			return false;
+
+		if(!jump)
+		{
+			if(world.blockedInRange(p.x, p.y, newY, dir))
+				return false;
+		}
+
+		return true;
+	  }
+	}
+	//Se evalua el caso de movimiento horizontal de IsValid para los parametros
+	boolean horizontally(int numero, boolean jump):
+	{
+
+	}
+	{
+	  { 
+		Point p =world.getPosition();
+		int tam = world.getN();
+		int newX;
+		
+		newX = p.x+numero;
+		
+		
+		int dir = 5;
+		
+		if (newX > tam) 
+			return false;
+    	else if (newX < 1) 
+			return false;
+    	else if (world.isBlocked(new Point(newX,p.y)))
+			return false;
+    	else if (jump)
+    		return false;
+
+    	if(!jump)
+		{
+	    	if(world.blockedInRange(p.x, p.y, newX, dir))
+				return false;
+		}
+
+		return true;
+		
+	  }
+	}
+
+	
+	//Se ejecuta un movimiento en una direccion dada por un numero de pasos por parametro
+	void omove(int numero, String dir):
+	{
+	}
+	{
+	  { 
+			if( (dir).equals("north") || (dir).equals("west") ) {
+			  numero=-numero;
+			}
+
+			if( (dir).equals("east") || (dir).equals("west") ) {
+			  world.moveHorizontally(numero, false);
+			}
+			else {
+			  world.moveVertically(numero, false);
+			}
+	  }	
+	}
+	//Se ejecuta un movimiento en una direccion dada por un numero de pasos por parametro
+	void dmove(int numero, String dir):
+	{
+	}
+	{
+	  { 
+			if( (dir).equals("left") || (dir).equals("front") ) {
+			  numero=-numero;
+			}
+
+			if( (dir).equals("left") || (dir).equals("right") ) {
+			  world.moveHorizontally(numero, false);
+			}
+			else {
+			  world.moveVertically(numero, false);
+			}
+	  }	
+	}  
+	//Se voltea para un dere, izq o da la vuelta
+	void veer(String dir):
+	{
+	}
+	{
+	  { 
+			if( (dir).equals("right")) {
+			  
+			  world.turnRight();
+			}
+			else if((dir).equals("left") ) {
+
+			   world.turnRight();
+			   world.turnRight();
+			   world.turnRight();
+		    }
+		    else {
+		      world.turnRight();
+			  world.turnRight();
+		  	}
+	  }
+	}
+
+	//Se gira hasta encontrar al direccion que deberia estar viendo
+	void look(String dir):
+	{
+	  int num=3;
+	}
+	{
+	  {
+
+			if((dir).equals("north"))
+			{
+			  num=0;
+			}
+			else if((dir).equals("south"))
+			{
+			  num=1;
+			}
+			else if((dir).equals("east"))
+			{
+			  num=2;
+			}
+			
+	    	while(world.getFacing()!=num)
+	    	{
+	    	  world.turnRight();
+	   		}
+
+	  }
+	}
+
+
+	//Se interpreta una asignacion y se modifica el valor si es valido
+	void asignar(String pNombre, int pNum) throws Error:
+	{	
+		Parametro valor2=null;
+	}
+	
+	{
+		{
+		  
+		    valor2 = globales.get(pNombre);
+
+		    if(valor2 != null)
+		    {
+		      valor2.modificarValor(pNum);
+		    }
+		    else 
+			{
+				throw new Error("La variable "+token.image + " no existe");
+			}
+	     }
+	
+	}
+
+	//Se entrega un valor numerico
+	int num() throws Error:
+	{	
+		int total=1;
+		Token token;
+	}
+	
+	{
+		(token=<INT>)
+	
+		{ 
+			try {
+				total = Integer.parseInt(token.image);
+			} 
+			catch (NumberFormatException ee) 
+			{
+				// Dada la forma de <ENTERO>, sabemos que solo puede tener digitos 
+				throw new Error("Numero demasiado grande"+token.image);
+			}
+			return total;
+	     }
+	
+	}
+
+	//Dado una variable se busca us valor y se devuelve
+    int buscar() throws Error:
+	{
+	  int total=1000;
+	  Token nombre=null;
+	  Parametro valor=null;
+	}
+	
+	{
+	    (nombre=< NAME >)
+	      
+		{
+		   
+		    valor = globales.get(nombre.image);
+			if(valor!=null)
+		    {
+		      total = valor.darValor();
+		    }
+		    else 
+			{
+				throw new Error("El parámetro "+token.image + " no ha sido declarado");
+			}
+			return total;
+	     }
+	
+	}
+
+	//Dado una variable se busca us valor y se devuelve
+	int buscar2(String nombre) throws Error:
+	{
+	  int total=1000;
+	  Parametro valor=null;
+	}
+	
+	{
+	      
+		{
+		   
+		    valor = globales.get(nombre);
+			if(valor!=null)
+		    {
+		      total = valor.darValor();
+		    }
+		    else 
+			{
+				throw new Error("El parámetro "+ nombre + " no ha sido declarado");
+			}
+			return total;
+	     }
+	
+	}
+
+	//Dado una variable se deuvle un parametro
+	Parametro fbuscar(HashMap<String, Parametro > param) throws Error:
+	{	
+		Parametro total= new Parametro("", 1000);
+		Token token;
+	}
+	
+	{
+	  	 (token= < NAME >)
+		{
+		  
+		    Parametro valor = param.get(token.image);
+		    Parametro valor2 = globales.get(token.image);
+		    if(valor != null)
+		    {
+		      total = valor;
+		    }
+		    else if(valor2!=null)
+		    {
+		      total = valor2;
+		    }
+		    else 
+			{
+				throw new Error("El parámetro "+token.image + " no ha sido declarado");
+			}
+			return total;
+	     }
+	
+	}
+	
+
+	//Dado una nombre se devuelve su String
+	String name() throws Error:
+	{	
+		Token token;
+	}
+	
+	{
+		(token=<NAME>)  
+	{
+	  return token.image;
+	}   
+	}
+
+
+	//Se agregan variables cuando se declaran
+	void var():
+	{
+	  String nombre="";
+	  Parametro parametro = new Parametro(nombre, 1000);
+	}
+	{
+	  <VAR> (nombre = name(){parametro = new Parametro(nombre, 1000);  globales.put(nombre, parametro); })
+	  ("," nombre = name() {parametro = new Parametro(nombre, 1000);  globales.put(nombre, parametro);})* ";"
+	}	

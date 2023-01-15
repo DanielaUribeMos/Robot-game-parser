@@ -1,0 +1,126 @@
+using gold.**
+
+toSet(C) :=  {x|  x in C}
+
+///====   mini Parser===
+
+function createParser(A):IPushdownAutomaton begin
+	Q:=(0‥7) ∪ (21‥23) ∪ (31‥39) ∪ (310‥318)
+	Σ:=toSet(A)  ∪ {' ', '\n'}
+	Γ:={'1', '2', '3', '4', '5', '6', '$'}
+	q₀:=0
+	F:= {7}
+	M:=GPushdownAutomaton(Q,Σ,Γ,q₀,F)
+	
+SkipChars := {' ', '\n'}   // this will only  be used when testing only the parser as the lexer removes  SkipChars
+
+	M.delta(0,1,"p").push("$")
+	M.delta(1,2,"v").ignore()
+	M.delta(1,3,"r").ignore()
+	M.delta(1,5,"{").ignore()
+	M.delta(2,5,"{").ignore()
+	M.delta(2,21,"*").ignore()
+	M.delta(3,4,"c").ignore()
+	M.delta(3,31,"*(").ignore()
+	M.delta(3,33,"*()").ignore()
+	M.delta(4,5,"{").ignore()
+	M.delta(4,6,"{}g").ignore()
+	M.delta(4,3,"r").ignore()
+	M.delta(5,34,"").push("6")
+	M.delta(6,7,"").pop("$")
+	M.delta(21,22,",").ignore()
+	M.delta(21,23,";").ignore()
+	M.delta(22,21,"*").ignore()
+	M.delta(23,3,"r").ignore()
+	M.delta(31,32,"*").ignore()
+	M.delta(32,31,",").ignore()
+	M.delta(32,33,")").ignore()
+	M.delta(33,34,"{").ignore()
+	M.delta(34,35,"*").ignore()
+	M.delta(34,311,"i").push("1")
+	M.delta(34,311,"h").push("2")
+	M.delta(34,34,"m*{").push("4")
+	M.delta(34,34,"m#{").push("4")
+	M.delta(34,316,"m#{}").push("4")
+	M.delta(34,316,"m*{}").push("4")
+	M.delta(34,318,"w(#)").ignore()
+	M.delta(34,318,"w(*)").ignore()
+	M.delta(34,318,"j(#)").ignore()
+	M.delta(34,318,"j(*)").ignore()
+	M.delta(34,318,"t(#,#)").ignore()
+	M.delta(34,318,"t(#,*)").ignore()
+	M.delta(34,318,"t(*,#)").ignore()
+	M.delta(34,318,"t(*,*)").ignore()
+	M.delta(34,318,"e(y)").ignore()
+	M.delta(34,318,"e(n)").ignore()
+	M.delta(34,318,"l(x)").ignore()
+	M.delta(34,318,"w(y,*)").ignore()
+	M.delta(34,318,"w(y,#)").ignore()
+	M.delta(34,318,"w(f,*)").ignore()
+	M.delta(34,318,"w(f,#)").ignore()
+	M.delta(34,318,"w(x,*)").ignore()
+	M.delta(34,318,"w(x,#)").ignore()
+	M.delta(35,36,":=").ignore()
+	M.delta(35,38,"(").ignore()
+	M.delta(35,310,"()").ignore()
+	M.delta(36,37,"*").ignore()
+	M.delta(36,37,"#").ignore()
+	M.delta(37,34,";").ignore()
+	M.delta(37,34,";").ignore()
+	M.delta(38,39,"*").ignore()
+	M.delta(38,39,"#").ignore()
+	M.delta(39,38,",").ignore()
+	M.delta(310,34,";").ignore()
+	M.delta(310,316,"}").ignore()
+	M.delta(311,312,"(").ignore()
+	M.delta(312,313,"").ignore()
+	M.delta(312,313,"u(").push("5")
+	M.delta(313,313,"u(").push("5")
+	M.delta(313,314,"z(x)").ignore()
+	M.delta(313,314,"q(j,#)").ignore()
+	M.delta(313,314,"q(j,*)").ignore()
+	M.delta(313,314,"q(w,#)").ignore()
+	M.delta(313,314,"q(w,*)").ignore()
+	M.delta(313,314,"k(x,*)").ignore()
+	M.delta(313,314,"k(x,#)").ignore()
+	M.delta(313,314,"k(y,*)").ignore()
+	M.delta(313,314,"k(y,#)").ignore()
+	M.delta(313,314,"k(f,*)").ignore()
+	M.delta(313,314,"k(f,#)").ignore()
+	M.delta(314,315,"").ignore()
+	M.delta(314,315,")").pop("5")
+	M.delta(315,315,")").pop("5")
+	M.delta(315,34,"){").$skip("1")
+	M.delta(315,34,")b{").$skip("2")
+	M.delta(316,6,"}g").pop("6")
+	M.delta(316,6,"g").pop("6")
+	M.delta(316,317,"a").pop("1")
+	M.delta(316,317,"a").pop("3")
+	M.delta(316,317,"o").pop("2")
+	M.delta(316,317,"s").pop("4")
+	M.delta(316,4,"c").$skip("$")
+	M.delta(316,34,"d{").changeTop("1","3")
+	M.delta(316,316,"d{}").changeTop("1","3")
+	M.delta(317,4,"}c").$skip("$")
+	M.delta(317,34,";").ignore()
+	M.delta(317,316,"}").ignore()
+	M.delta(318,316,"}").ignore()
+	M.delta(318,316,"").$skip("6")
+	M.delta(318,34,";").ignore()
+	M.delta(31,33,")").ignore()
+	M.delta(39,310,")").ignore()
+	M.delta(37,310,"}").ignore()
+	
+	
+ // this will only  be used when testing only the parser as the lexer removes  SkipChars
+ 
+ for each q in Q do
+ 	for each s in SkipChars do
+ 	   M.delta(q,q,λ+s).ignore()
+ end
+ end
+
+
+return M
+end
+
